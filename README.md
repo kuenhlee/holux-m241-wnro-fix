@@ -1,7 +1,8 @@
 # Holux M-241 — GPS Week Number Rollover Fix
 
 Resurrect a Holux M-241 GPS logger from the GPS Week Number Rollover (WNRO) bug
-with a 2-byte firmware patch, no JTAG and no Windows.
+with a 2-byte firmware patch. Pure Python toolchain — no JTAG, no GlobalTop
+`PowerFlash.exe` required.
 
 > Holux ceased GPS operations in 2019. The M-241's clock has been broken since
 > 2019-04-06 (the 2nd GPS WNRO). Without this fix every fix shows a date in
@@ -11,8 +12,9 @@ with a 2-byte firmware patch, no JTAG and no Windows.
 
 ## What this project does
 
-1. **Reverses MTK MT3318 BootROM protocol on macOS/Linux** so you can talk
-   to the chip without GlobalTop's Windows-only `PowerFlash.exe`.
+1. **Reverses MTK MT3318 BootROM protocol** so you can talk to the chip
+   from any OS that runs `pyserial`, without GlobalTop's Windows-only
+   `PowerFlash.exe`.
 2. **Dumps the original firmware** off your own device (so you have a known-good
    backup before anything risky happens).
 3. **Patches the firmware** at two well-defined byte offsets:
@@ -68,7 +70,9 @@ provide them yourself:
 - A **Holux M-241** with the WNRO bug (any unit shipped before mid-2019).
 - The bundled USB cable, or any CP210x USB-to-UART bridge that exposes
   `/dev/tty.usbserial-*` on macOS or `/dev/ttyUSB*` on Linux.
-- A computer running macOS or Linux. **Windows not required.**
+- A computer with Python 3.10+ and `pyserial`. Verified on macOS;
+  should also work on Linux and Windows (pyserial is cross-platform —
+  use `COM3` etc. instead of `/dev/tty.usbserial-*` on Windows).
 - **A working backup workflow** (because firmware flashing can brick the
   device if interrupted).
 

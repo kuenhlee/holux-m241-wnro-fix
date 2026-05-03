@@ -2,7 +2,7 @@
 
 GPS 週数ロールオーバー (WNRO) で日付がおかしくなった Holux M-241 を、
 2 バイトのファームパッチで蘇らせるプロジェクト。
-**JTAG 不要、Windows 不要**、Mac/Linux のみで完結する。
+Pure Python なので **JTAG 不要、GlobalTop 純正 `PowerFlash.exe` 不要**。
 
 > Holux は 2019年に GPS 事業から撤退済。M-241 の時計は 2019-04-06 (第2 GPS WNRO)
 > 以降ずっと壊れていて、何もしないと 2026年 を **2006年** として記録する。
@@ -11,8 +11,9 @@ GPS 週数ロールオーバー (WNRO) で日付がおかしくなった Holux M
 
 ## このプロジェクトでできること
 
-1. **MTK MT3318 BootROM プロトコルの macOS/Linux 実装**
+1. **MTK MT3318 BootROM プロトコルの Pure Python 実装**
    GlobalTop の Windows 専用 `PowerFlash.exe` 無しでチップと喋れる。
+   `pyserial` が動く OS なら macOS / Linux / Windows どれでも。
 2. **オリジナルファームの吸い出し** — 何かする前に必ず自分の機器のバックアップを取る。
 3. **2 バイトの精密パッチ**
    - WNRO: Unix epoch 基準を +1024 週 (= +7168日) ずらす
@@ -64,7 +65,9 @@ GPS 週数ロールオーバー (WNRO) で日付がおかしくなった Holux M
 
 - **WNRO バグ持ちの Holux M-241** (2019年中頃以前に出荷された個体は全部該当)
 - 付属 USB ケーブル、または `/dev/tty.usbserial-*` (macOS) / `/dev/ttyUSB*` (Linux) として認識される CP210x USB-UART ブリッジ
-- macOS か Linux のホスト機。**Windows 不要**。
+- Python 3.10+ と `pyserial` が動くホスト機。動作確認は macOS。
+  Linux / Windows でも動くはず (pyserial がクロスプラットフォームなので、
+  Windows ではポート指定を `COM3` 等に変えるだけ)。
 - **きちんとしたバックアップ手順** (途中で電源が切れると文鎮化リスクあり)
 
 ## クイックスタート
