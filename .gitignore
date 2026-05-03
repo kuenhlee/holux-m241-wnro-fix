@@ -1,0 +1,31 @@
+# Proprietary firmware / binaries — never commit
+firmware/
+*.bin
+*.dll
+*.exe
+*.zip
+
+# Captures from real device runs
+captures/
+*.log
+*.pcap
+*.cap
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*~
