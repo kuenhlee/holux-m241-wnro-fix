@@ -1,17 +1,18 @@
 #!/usr/bin/env python3
-"""Stage 2: Holux M-241 のファームウェアダンプ (read-only)。
+"""Holux M-241 firmware dumper (read-only, safe).
 
-Boot ROM 経由で SPI Flash の内容を読み出してファイルに保存。
-**書き込みは一切しない**。ダンプは2回行い、SHA256 が一致することを確認する。
+Reads the M-241 SPI flash via the MTK BootROM protocol and writes it to
+a file. **No writes ever.** The dump is performed twice and SHA256 of the
+two passes is compared as a stability check.
 
-使い方:
-    python3 scripts/dump_firmware.py /dev/tty.SLAB_USBtoUART firmware/original/dump.bin
+Usage:
+    python3 scripts/dump_firmware.py /dev/tty.usbserial-0001 m241_dump.bin
 
-オプション:
-    --header-only   先頭 0x200 バイトのみ（chip 推定用）
-    --length N      サイズ指定（デフォルトはヘッダから自動）
-    --no-verify     2回ダンプして比較するのを省略（非推奨）
-    --nmea-baud N   NMEA モードの現 baud（auto検出に失敗する時に指定）
+Options:
+    --header-only   only the first 0x200 bytes (firmware metadata)
+    --length N      explicit byte length (default: read from header)
+    --no-verify     skip the 2nd dump pass (NOT recommended)
+    --nmea-baud N   the device's current NMEA baud (only set if auto fails)
 """
 from __future__ import annotations
 

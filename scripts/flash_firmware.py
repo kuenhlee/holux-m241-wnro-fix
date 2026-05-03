@@ -1,17 +1,22 @@
 #!/usr/bin/env python3
-"""Stage 6: Holux M-241 にパッチ済みファームウェアを書き込む。
+"""Holux M-241 firmware flasher.
 
-**破壊的・不可逆**。Stage 0-5 を完了し、以下が満たされてから実行すること:
-- Stage 2 でオリジナルファームを2回ダンプして SHA256 一致を確認
-- Stage 3 でパッチ箇所を特定
-- Stage 4 で NMEA プロキシによる補正ロジックの動作確認
-- Stage 5 でパッチ済みファームをエミュレータで検証
+**DESTRUCTIVE AND IRREVERSIBLE.** This script writes a firmware image to
+the M-241's SPI flash via the MTK Download Agent (DA). Before running:
+  1. Dump your original firmware twice with dump_firmware.py and verify
+     both SHA256 hashes match.
+  2. Keep that backup somewhere safe.
+  3. Read DISCLAIMER.md.
 
-使い方:
-    python3 scripts/flash_firmware.py /dev/tty.SLAB_USBtoUART \\
-        --da firmware/agents/MTK_AllInOne_DA_MT3329_v4.02.bin \\
-        --fw firmware/patched/v1.13_wnro_fix.bin \\
-        --i-have-backup firmware/original/dump.bin
+Usage:
+    python3 scripts/flash_firmware.py /dev/tty.usbserial-0001 \\
+        --da firmware/agents/DA_v3.8.4.bin \\
+        --fw firmware/patched/m241_v114_wnro.bin \\
+        --i-have-backup firmware/original/m241_dump.bin \\
+        --start-addr 0x0 --yes
+
+If anything goes wrong mid-flash, re-flash the original backup with the
+same command, swapping --fw to point at it.
 """
 from __future__ import annotations
 
