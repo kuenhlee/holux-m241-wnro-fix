@@ -133,3 +133,11 @@ that you supply yourself remain under their original copyright.
   for the original MTK GPS protocol reference.
 - BT747 project for documenting MTK GPS quirks.
 - Everyone who keeps abandonware running.
+
+## How this was built
+
+The reverse engineering, BootROM/DA driver implementation, firmware
+disassembly and patch identification were carried out interactively with
+[Claude Code](https://www.anthropic.com/claude-code) (Anthropic's AI
+coding assistant). Every byte committed here was reviewed and tested on
+real hardware by a human before publication.
