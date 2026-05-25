@@ -10,6 +10,10 @@ with a 2-byte firmware patch. Pure Python toolchain — no JTAG, no GlobalTop
 
 [日本語版 README は `README.ja.md`](README.ja.md)
 
+## Related write-up
+
+📝 **[Detailed blog post in Japanese](https://catea.tech/blog/holux-m241-wnro-fix)** — full story, debugging notes, and FAQ on the [catea.tech (Catea Tech)](https://catea.tech) site by [Kazuha Kato (二葉 / Futaba)](https://catea.tech/about). Covers the BootROM reverse engineering walkthrough, why the obvious `+1024` patches failed, the DA load-address discovery, and the undocumented PMTK aiding commands.
+
 ## What this project does
 
 1. **Reverses MTK MT3318 BootROM protocol** so you can talk to the chip

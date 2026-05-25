@@ -9,6 +9,10 @@ Pure Python なので **JTAG 不要、GlobalTop 純正 `PowerFlash.exe` 不要**
 
 [English README](README.md)
 
+## 解説記事
+
+📝 **[詳細ブログ記事 (catea.tech)](https://catea.tech/blog/holux-m241-wnro-fix)** — BootROM の逆解析過程、DA ロードアドレスの突き止め方、「`+1024` 直接書き換え」が効かなかった理由、未文書 PMTK aiding コマンド、ハマりどころと教訓まで全て解説。書いたのは [加藤 一葉 (二葉 / Futaba)](https://catea.tech/about) ([猫葉Tech](https://catea.tech))。
+
 ## このプロジェクトでできること
 
 1. **MTK MT3318 BootROM プロトコルの Pure Python 実装**
