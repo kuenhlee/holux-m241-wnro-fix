@@ -77,8 +77,20 @@ def main() -> int:
     p.add_argument(
         "--start-addr",
         type=lambda x: int(x, 0),
-        default=0,
-        help="書込先 base アドレス (Holux M-241 のメインファームは 0x200000)",
+        required=True,
+        help="DA write start address. UNVERIFIED for HW where BootROM maps flash at 0x200000 - "
+        "do not guess; see notes. (docs example uses 0x0)",
+    )
+    p.add_argument(
+        "--legacy-start",
+        action="store_true",
+        help="original behaviour: PMTK180 at several bauds, no RTS/DTR pulse. "
+        "Default now matches dump_firmware.py (RTS/DTR pulse), which works on this unit.",
+    )
+    p.add_argument(
+        "--info-only",
+        action="store_true",
+        help="load the DA, print flash info, restart. Never writes flash (still loads the DA into RAM).",
     )
     p.add_argument(
         "--yes",
@@ -97,6 +109,24 @@ def main() -> int:
     backup_size = args.i_have_backup.stat().st_size
     fw_sha = hashlib.sha256(fw_data).hexdigest()
     backup_sha = hashlib.sha256(args.i_have_backup.read_bytes()).hexdigest()
+
+    backup_data = args.i_have_backup.read_bytes()
+    if not args.info_only:
+        if len(fw_data) != len(backup_data):
+            print(f"[!] FW ({len(fw_data)}) and backup ({len(backup_data)}) differ in size", file=sys.stderr)
+            return 1
+        if len(fw_data) % 0x100:
+            print(f"[!] FW length {len(fw_data)} is not a multiple of 0x100 (DA packet size); "
+                  "the last short packet would stall the DA. Re-dump with --length 0x70000.", file=sys.stderr)
+            return 1
+        diff = [i for i in range(len(fw_data)) if fw_data[i] != backup_data[i]]
+        print(f"  bytes differing from backup: {[hex(i) for i in diff]}")
+        if not set(diff) <= {0x402F6, 0x402F7, 0x59C2C} or len(diff) not in (0, 3):
+            print("[!] FW must be either identical to the backup (identity test) or differ "
+                  "by exactly the 3 expected bytes", file=sys.stderr)
+            return 1
+        print("  mode: " + ("IDENTITY TEST (rewrites the original image unchanged)" if not diff
+                            else "PATCH (3 bytes changed)"))
 
     print(WARNING_BANNER)
     print(f"  port:       {args.port}")
@@ -124,7 +154,10 @@ def main() -> int:
     brom = MtkBootRom(args.port, baud=args.baud, nmea_baud=args.nmea_baud)
     try:
         # legacy mt3301 mode: PMTK180 で Boot ROM 移行 (RTS/DTR pulse 無効)
-        brom.start(use_rts_dtr=False, autoboot_polling=False)
+        if args.legacy_start:
+            brom.start(use_rts_dtr=False, autoboot_polling=False)
+        else:
+            brom.start()
     except BootRomError as e:
         print(f"[!] could not enter Boot ROM: {e}", file=sys.stderr)
         return 2
@@ -151,6 +184,11 @@ def main() -> int:
             file=sys.stderr,
         )
         return 4
+
+    if args.info_only:
+        print("[*] --info-only: not writing. sending DA restart")
+        da.restart()
+        return 0
 
     if args.high_baud:
         print(f"[*] switching to {args.high_baud} baud")

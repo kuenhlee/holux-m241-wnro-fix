@@ -9,8 +9,8 @@ Usage:
     python3 patch_firmware.py firmware/original/m241_dump.bin \\
         firmware/patched/m241_v114_wnro.bin
 
-The expected input is a 458752-byte (= 0x70000) flash image starting at
-flash offset 0 (matches what dump_firmware.py produces).
+The input is a dump of the firmware image (first byte = ARM vector table). The
+author's image is 0x70000 bytes; any dump >= the header fw_size works for patching.
 
 WHAT THIS PATCHES:
   1. Unix-epoch offset (file 0x402f4): +619315200 seconds (= +1024 weeks)
@@ -30,7 +30,6 @@ from pathlib import Path
 
 # ---- Patch table ----------------------------------------------------------
 
-EXPECTED_SIZE = 458752  # 0x70000 bytes
 EXPECTED_SHA256_PREFIX = "b83204e0cb4a1daa"
 
 PATCHES = [
@@ -54,39 +53,42 @@ PATCHES = [
 def main() -> int:
     p = argparse.ArgumentParser(description=__doc__,
                                 formatter_class=argparse.RawDescriptionHelpFormatter)
-    p.add_argument("input",  type=Path, help="User's M-241 firmware backup (458752 bytes)")
+    p.add_argument("input",  type=Path, help="User's M-241 firmware backup")
     p.add_argument("output", type=Path, help="Output patched firmware path")
-    p.add_argument("--no-verify", action="store_true",
-                   help="Skip SHA256 prefix check (use at own risk)")
     args = p.parse_args()
 
     if not args.input.exists():
         print(f"[!] input not found: {args.input}", file=sys.stderr)
         return 1
     fw = bytearray(args.input.read_bytes())
+    orig = bytes(fw)
 
-    if len(fw) != EXPECTED_SIZE:
-        print(
-            f"[!] unexpected size: {len(fw)} bytes "
-            f"(expected {EXPECTED_SIZE})",
-            file=sys.stderr,
-        )
+    # Structural checks instead of a fixed size / sha256 of the author's own dump.
+    # (The author's image is 0x70000 bytes; a header-sized dump is 0x63458. Both are
+    #  fine for patching, but the flasher needs a multiple of 0x100 - see flash_firmware.py.)
+    if len(fw) < 0x59C30:
+        print(f"[!] file too small ({len(fw)} bytes)", file=sys.stderr)
         return 2
-
-    sha = hashlib.sha256(bytes(fw)).hexdigest()
-    print(f"  input sha256: {sha}")
-    if not args.no_verify and not sha.startswith(EXPECTED_SHA256_PREFIX):
-        print(
-            f"[!] sha256 prefix mismatch (expected {EXPECTED_SHA256_PREFIX}*)",
-            file=sys.stderr,
-        )
-        print(
-            "    This script is verified against the v1.13 firmware shipped with Holux M-241.\n"
-            "    A different prefix means the firmware version differs - patch offsets may not match.\n"
-            "    Pass --no-verify to override (use only if you know what you are doing).",
-            file=sys.stderr,
-        )
+    if fw[0x60:0x70] != b"THIS CODE is OK!" or fw[0x90:0x9B] != b"HOLUX_M-241":
+        print("[!] header magic / family string not found - not an M-241 image "
+              "(wrong --base-addr?)", file=sys.stderr)
         return 3
+    fw_size = struct.unpack_from("<L", fw, 0xF4)[0]
+    if len(fw) < fw_size:
+        print(f"[!] file ({len(fw)}) is shorter than fw_size in header ({fw_size})", file=sys.stderr)
+        return 3
+    if fw[0x59C28:0x59C2D] != b"V1.13":
+        print(f"[!] expected b'V1.13' at 0x59c28, got {bytes(fw[0x59C28:0x59C2D])!r} "
+              "- different firmware version", file=sys.stderr)
+        return 3
+
+    sha = hashlib.sha256(orig).hexdigest()
+    print(f"  input: {len(fw)} bytes, fw_size(header)={fw_size}, sha256={sha}")
+    if sha.startswith(EXPECTED_SHA256_PREFIX):
+        print("  (sha256 matches the author's verified image)")
+    else:
+        print("  (sha256 differs from the author's image - expected for a different dump length / unit;")
+        print("   the structural checks above are what matter)")
 
     print()
     print(f"  applying {len(PATCHES)} patches:")
@@ -103,17 +105,23 @@ def main() -> int:
             new_str = f"0x{patch['new']:02x}"
 
         if actual != patch["old"]:
-            print(
-                f"  [!] file 0x{off:x}: expected {old_str}, got 0x{actual:x} - SKIPPING",
-                file=sys.stderr,
-            )
-            continue
+            # The original script skipped and still wrote an output file. Abort instead.
+            print(f"  [!] file 0x{off:x}: expected {old_str}, got 0x{actual:x} - ABORTING, nothing written",
+                  file=sys.stderr)
+            return 4
 
         if size == 4:
             fw[off:off + 4] = struct.pack("<I", patch["new"])
         else:
             fw[off] = patch["new"]
         print(f"     file 0x{off:06x} {old_str} -> {new_str}  ({patch['description']})")
+
+    diff = [i for i in range(len(fw)) if fw[i] != orig[i]]
+    print(f"\n  changed bytes: {[hex(i) for i in diff]}")
+    allowed = {0x402F6, 0x402F7, 0x59C2C}
+    if set(diff) != allowed:
+        print(f"[!] unexpected diff, expected exactly {[hex(i) for i in sorted(allowed)]}", file=sys.stderr)
+        return 5
 
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_bytes(bytes(fw))
@@ -122,11 +130,7 @@ def main() -> int:
     print(f"  output: {args.output}")
     print(f"  output sha256: {out_sha}")
     print()
-    print(
-        "  next: flash the patched image with flash_firmware.py.\n"
-        "  KEEP YOUR ORIGINAL BACKUP. If anything goes wrong, you can\n"
-        "  re-flash the unpatched dump to restore."
-    )
+    print("  next: flash with flash_firmware.py. KEEP YOUR ORIGINAL BACKUP.")
     return 0
 
 

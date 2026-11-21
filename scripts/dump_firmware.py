@@ -89,6 +89,12 @@ def dump_once(
     return bytes(out)
 
 
+def looks_like_firmware(data: bytes) -> bool:
+    """Reject constant fills: real firmware has many distinct 4-byte words."""
+    words = {data[i:i + 4] for i in range(0, len(data) - 3, 4)}
+    return len(words) > max(4, len(data) // 4096)
+
+
 def main() -> int:
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("port")
@@ -132,6 +138,14 @@ def main() -> int:
     except (BootRomError, RuntimeError, serial.SerialException) as e:
         print(f"[!] dump failed: {e}", file=sys.stderr)
         return 1
+
+    if not looks_like_firmware(first):
+        print(
+            "[!] dump looks like a constant/garbage fill, not firmware. "
+            "Wrong --base-addr? (header dump used --base-addr 0x200000). Not saving.",
+            file=sys.stderr,
+        )
+        return 4
 
     h1 = hashlib.sha256(first).hexdigest()
     print(f"[+] dump #1: {len(first)} bytes, sha256={h1}")
