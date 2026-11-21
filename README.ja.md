@@ -9,6 +9,13 @@ Pure Python なので **JTAG 不要、GlobalTop 純正 `PowerFlash.exe` 不要**
 
 [English README](README.md)
 
+> **このフォークについて**: 読み取り専用の Boot ROM プローブ (`scripts/probe_read.py`)、
+> より安全な dump / patch / flash スクリプト、そして 2 台目の個体 (HW V02, FW V1.13) を
+> Windows + Tera Term で実施した記録を追加している。
+> [`docs/04-hw-v02-findings.md`](docs/04-hw-v02-findings.md) と
+> [`docs/05-procedure-windows-teraterm.md`](docs/05-procedure-windows-teraterm.md) を参照 (どちらも英語)。
+> オリジナル: [NekobaTechnology/holux-m241-wnro-fix](https://github.com/NekobaTechnology/holux-m241-wnro-fix)
+
 ## 解説記事
 
 📝 **[詳細ブログ記事 (catea.tech)](https://catea.tech/blog/holux-m241-wnro-fix)** — BootROM の逆解析過程、DA ロードアドレスの突き止め方、「`+1024` 直接書き換え」が効かなかった理由、未文書 PMTK aiding コマンド、ハマりどころと教訓まで全て解説。書いたのは [加藤 一葉 (二葉 / Futaba)](https://catea.tech/about) ([猫葉Tech](https://catea.tech))。
@@ -26,7 +33,7 @@ Pure Python なので **JTAG 不要、GlobalTop 純正 `PowerFlash.exe` 不要**
 
 書き戻し後、`$GPRMC` の UTC 日付が正しい現在日付になり、OLED もそれに追従する。
 
-## 実機検証ステータス
+## 実機検証ステータス (オリジナル作者の個体)
 
 | コンポーネント | ステータス |
 |--------------|-----------|
@@ -38,6 +45,23 @@ Pure Python なので **JTAG 不要、GlobalTop 純正 `PowerFlash.exe` 不要**
 | バージョン文字列 `V1.13 → V1.14` | ✅ OLED に反映 |
 | PMTK aiding (715 / 716 / 717) | ✅ status=3 で ACK |
 
+## 2 台目の個体での検証 (このフォーク)
+
+| 項目 | 結果 |
+|------|------|
+| 個体 | Holux M-241、HW V02、FW V1.13。Windows + Tera Term (38400) |
+| BootROM 読み出し / ダンプ | ✅ `--base-addr 0x200000` が必要 (flash は既定の `0x20000000` には無い) |
+| Flash / DA | ✅ 512 KB MXIC `0xc2` / `0x22ba`、DA v3.8 を `0x100800` にロード |
+| パッチ済イメージの書込 | ✅ `--start-addr 0x0` |
+| バージョン表示 | ✅ `V1.14` |
+| GPS 捕捉 | ✅ |
+| 時間間隔ロギング (5 秒) | ✅ |
+| ログ取得 (Holux Logger Utility) → KML → Google Earth | ✅ |
+| `$GPRMC` / OLED の日付、ログのタイムスタンプ | ⏳ 未確認 (`docs/04` 参照) |
+
+メモリマップやベースアドレスは個体によって異なるため、ダンプや書込の前に
+`probe_read.py` を実行すること (クイックスタート参照)。
+
 ## ディレクトリ構成
 
 ```
@@ -46,12 +70,15 @@ Pure Python なので **JTAG 不要、GlobalTop 純正 `PowerFlash.exe` 不要**
 │   ├── 00-baseline.md         (壊れた挙動の記録)
 │   ├── 01-protocol.md         (MTK BootROM プロトコル)
 │   ├── 02-firmware-map.md     (M-241 ファーム構造)
-│   └── 03-brom-analysis.md    (フル逆解析)
+│   ├── 03-brom-analysis.md    (フル逆解析)
+│   ├── 04-hw-v02-findings.md  (2台目: メモリマップ、パッチ位置、結果)
+│   └── 05-procedure-windows-teraterm.md (Windows + Tera Term の手順)
 ├── scripts/
 │   ├── mtk_proto.py           (BootROM クライアント + DA ドライバ)
+│   ├── probe_read.py          (読み取り専用の BootROM 読出し / メモリマップ確認)
 │   ├── dump_firmware.py       (自分の M-241 を .bin にダンプ)
 │   ├── patch_firmware.py      (2バイトパッチ適用)
-│   └── flash_firmware.py      (.bin を DA 経由で書き戻し)
+│   └── flash_firmware.py      (.bin を DA 経由で書き戻し。--info-only で DA だけ試験)
 └── requirements.txt
 ```
 
@@ -63,44 +90,71 @@ Pure Python なので **JTAG 不要、GlobalTop 純正 `PowerFlash.exe` 不要**
 | ファイル | 入手方法 |
 |---------|---------|
 | `DA_v3.8.4.bin` | Holux Logger Utility のインストーラ (`1597553.zip` 等) に同梱。MTK の DA で再配布不可。 |
-| `m241_dump.bin` | **自分の** M-241 から `scripts/dump_firmware.py` で吸い出す。著作権は Holux/MTK のもの。 |
+| `m241_dump70.bin` | **自分の** M-241 から `scripts/dump_firmware.py` で吸い出す (`0x70000` バイト)。著作権は Holux/MTK のもの。`firmware/` と `*.bin` は `.gitignore` で除外。 |
 
 ## 必要なハードウェア
 
 - **WNRO バグ持ちの Holux M-241** (2019年中頃以前に出荷された個体は全部該当)
 - 付属 USB ケーブル、または `/dev/tty.usbserial-*` (macOS) / `/dev/ttyUSB*` (Linux) として認識される CP210x USB-UART ブリッジ
-- Python 3.10+ と `pyserial` が動くホスト機。動作確認は macOS。
-  Linux / Windows でも動くはず (pyserial がクロスプラットフォームなので、
-  Windows ではポート指定を `COM3` 等に変えるだけ)。
+- Python 3.10+ と `pyserial` が動くホスト機。動作確認は macOS (オリジナル作者) と
+  Windows (このフォーク: Tera Term + `COM3`、[`docs/05`](docs/05-procedure-windows-teraterm.md) 参照)。
+  Linux でも動くはず (pyserial がクロスプラットフォームなので)。
 - **きちんとしたバックアップ手順** (途中で電源が切れると文鎮化リスクあり)
 
 ## クイックスタート
+
+`<PORT>` は `/dev/tty.usbserial-*` (macOS)、`/dev/ttyUSB0` (Linux)、`COM3` (Windows) など。
+Windows の場合は [`docs/05-procedure-windows-teraterm.md`](docs/05-procedure-windows-teraterm.md) (英語) の手順に従うこと。
+Boot ROM モードへの入り方や、スクリプト実行前に Tera Term を閉じる必要がある点も書いてある。
 
 ```bash
 # 0) Python 依存をインストール
 python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 
-# 1) 自分の M-241 をダンプ (安全 — 読み取りのみ)
-python3 scripts/dump_firmware.py /dev/tty.usbserial-0001 \
-    --da firmware/agents/DA_v3.8.4.bin \
-    firmware/original/m241_dump.bin
+# 1) 自分の個体で flash がどこにマップされているか確認 (読み取りのみ)
+#    正しいベースアドレスでは ARM のベクタテーブル (18 f0 9f e5 ...) が見える。
+#    HW V02 の個体では 0x200000。既定の 0x20000000 は一定値の埋め草を返す。
+#    probe が通るまでダンプも書込もしないこと。
+python3 scripts/dump_firmware.py <PORT> firmware/original/m241_header.bin \
+    --base-addr 0x200000 --header-only --no-verify
+python3 scripts/probe_read.py <PORT> --base-addr 0x200000 \
+    --header firmware/original/m241_header.bin
 
-# 2) 2バイトパッチ適用
+# 2) 0x70000 バイトのイメージをバックアップ (読み取りのみ。2回分のハッシュが一致すること)
+python3 scripts/dump_firmware.py <PORT> firmware/original/m241_dump70.bin \
+    --base-addr 0x200000 --length 0x70000
+
+# 3) 2バイトパッチ + バージョン更新
 python3 scripts/patch_firmware.py \
-    firmware/original/m241_dump.bin \
+    firmware/original/m241_dump70.bin \
     firmware/patched/m241_v114_wnro.bin
 
-# 3) 書込 (破壊的 — まず DISCLAIMER.md を読むこと)
-python3 scripts/flash_firmware.py /dev/tty.usbserial-0001 \
+# 4) flash に書かずに Download Agent だけ試験
+python3 scripts/flash_firmware.py <PORT> \
     --da firmware/agents/DA_v3.8.4.bin \
     --fw firmware/patched/m241_v114_wnro.bin \
-    --i-have-backup firmware/original/m241_dump.bin \
-    --start-addr 0x0 \
-    --yes
+    --i-have-backup firmware/original/m241_dump70.bin \
+    --start-addr 0x0 --info-only
+
+# 5) 書込 (破壊的 — まず DISCLAIMER.md を読むこと)
+python3 scripts/flash_firmware.py <PORT> \
+    --da firmware/agents/DA_v3.8.4.bin \
+    --fw firmware/patched/m241_v114_wnro.bin \
+    --i-have-backup firmware/original/m241_dump70.bin \
+    --start-addr 0x0
 ```
 
-step 3 の後デバイスを電源 OFF/ON して:
+補足:
+
+- フラッシャは、長さが `0x100` の倍数でないファーム、またはバックアップと
+  パッチの 3 バイト以外が異なるファームの書込を拒否する。
+- `--start-addr 0x0` は HW V02 の個体で動作した。書込確認を省略する `--yes` は
+  例から意図的に外してある。
+- 任意の「同一イメージ書込テスト」(未改造のバックアップを先に書き込み、再ダンプしてハッシュを比較) は
+  `docs/05` に記載。
+
+step 5 の後デバイスを電源 OFF/ON して:
 
 - OLED に `V1.14` が出る
 - (衛星捕捉後) `$GPRMC` が現在の正しい UTC 日付を返す
@@ -112,6 +166,8 @@ Holux M-241 のファームは内部 GPS 時刻を Unix 時刻に変換すると
 足している。これを `935280000` (= 元の値 + 619 315 200 秒 = +1024 週 = +7168日)
 に書き換えると、すべての出力タイムスタンプが第2ロールオーバー後の正しい
 時代にずれる。たった 4 バイト書き換えるだけで NMEA RMC の date が直る。
+この定数はファーム内に 2 ヶ所ある (`0x402DC` と `0x402F4`)。書き換えるのは `0x402F4` だけで、
+両方書き換えると日付が行き過ぎる。
 
 なぜ「GPS 週計算 +1024」を直接いじらないのか? 試した — 該当しそうな箇所
 4 ヶ所を全部パッチしても **NMEA RMC date は変わらなかった**。Epoch 定数は
